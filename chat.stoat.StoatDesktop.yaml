@@ -10,18 +10,16 @@ command: stoat-desktop
 separate-locales: false
 finish-args:
   - --share=ipc
+  - --device=dri
+  - --device=shm
   - --socket=wayland
-  - --socket=x11
+  - --socket=fallback-x11 # Should be a fallback
     # Required to provide Call functionality
   - --socket=pulseaudio
-  - --device=all
     # Network access
   - --share=network
   - --talk-name=org.freedesktop.ScreenSaver
     # Local filesystem
-  - --filesystem=xdg-videos:ro
-  - --filesystem=xdg-pictures:ro
-  - --filesystem=xdg-download
   - --filesystem=xdg-run/pipewire-0
   - --filesystem=xdg-run/speech-dispatcher
     # Required for notifications in various desktop environments
@@ -75,12 +73,26 @@ modules:
       - type: script
         dest-filename: stoat-desktop.sh
         commands:
-          # TMPDIR env variable fixes the tray icon issue (#6)
-          - env TMPDIR="$XDG_RUNTIME_DIR/app/${FLATPAK_ID:-chat.stoat.StoatDesktop}" zypak-wrapper /app/stoat-desktop/stoat-desktop "$@"
+          - |
+            #!/bin/sh
+            # Enables Wayland when available, otherwise falls back to X11.
+            # Also sets TMPDIR to fix tray icon issues under Flatpak.
+
+            WAYLAND_FLAGS=""
+
+            # If running under Wayland, enable Electron's Wayland backend
+            if [ -n "$WAYLAND_DISPLAY" ]; then
+              WAYLAND_FLAGS="--ozone-platform=wayland --enable-features=UseOzonePlatform"
+            fi
+
+            env TMPDIR="$XDG_RUNTIME_DIR/app/${FLATPAK_ID:-chat.stoat.StoatDesktop}" \
+              zypak-wrapper /app/stoat-desktop/stoat-desktop $WAYLAND_FLAGS "$@"
+
+
       - type: file
         path: chat.stoat.StoatDesktop.desktop
       - type: file
         path: chat.stoat.StoatDesktop.metainfo.xml
       - type: file
-        url: https://raw.githubusercontent.com/stoatchat/assets/master/desktop/icon.png
-        sha256: 582426c61a9e708f26b45ac51b5b0a1423c780a7f56267743e51ce546a856548
+        url: https://raw.githubusercontent.com/stoatchat/assets/f106946659af67ad4f008588ac51570029b2fd47/desktop/icon.png
+        sha256: 5bef7f10d4090cf8eb99d66de47f708557d4c21c66f3c7ff80c8ba82165884c6
